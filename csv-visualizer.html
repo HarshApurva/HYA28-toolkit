@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYA28 · CSV Data Visualizer</title>
+  <meta name="description" content="Upload a CSV file, pick a column, filter values, and visualize distributions with interactive pie charts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- Decorative blobs -->
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <header>
+    <a href="Index.html" class="home-link" title="Back to HYA28 Toolkit">← Home</a>
+    <div class="header-inner">
+      <a href="Index.html" title="Back to HYA28 Toolkit"><img src="Logo_HYA28.png" alt="HYA28 Logo" class="header-logo"></a>
+      <div>
+        <h1>CSV Data Visualizer</h1>
+        <p class="subtitle">Upload · Filter · Visualize · Download</p>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme">🌙</button>
+  </header>
+
+  <main>
+    <!-- Upload Card -->
+    <section class="card upload-card" id="uploadCard">
+      <div class="upload-zone" id="dropZone">
+        <div class="upload-icon">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="upload-text">Drag & drop your <strong>.csv</strong> file here</p>
+        <p class="upload-or">or</p>
+        <label for="csvUpload" class="btn-primary">Browse Files</label>
+        <input type="file" id="csvUpload" accept=".csv" hidden>
+        <p class="upload-hint">Supports any standard CSV file</p>
+      </div>
+      <div class="file-info" id="fileInfo" style="display:none;">
+        <span class="file-icon">📄</span>
+        <span class="file-name" id="fileName"></span>
+        <span class="file-rows" id="fileRows"></span>
+        <button class="btn-clear" id="clearFile" title="Remove file">✕</button>
+      </div>
+    </section>
+
+    <!-- Summary Stats -->
+    <section class="card stats-card" id="statsCard" style="display:none;">
+      <h2>📋 Data Summary</h2>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div id="numericStatsSection" style="display:none;">
+        <h3 class="stats-sub-title">🔢 Numeric Column Statistics</h3>
+        <div class="table-scroll numeric-stats-scroll">
+          <table class="numeric-stats-table" id="numericStatsTable">
+            <thead id="numericStatsHead"></thead>
+            <tbody id="numericStatsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column Selector -->
+    <section class="card controls-card" id="controlsCard" style="display:none;">
+      <h2>🎯 Select a Column</h2>
+      <p class="controls-hint">Choose a column to visualize its value distribution.</p>
+      <select id="columnSelect">
+        <option value="">— Choose a column —</option>
+      </select>
+    </section>
+
+    <!-- Value Filter -->
+    <section class="card filter-card" id="filterCard" style="display:none;">
+      <div class="filter-header">
+        <h2>🔘 Select Values to Keep in Chart</h2>
+        <div class="filter-actions">
+          <button class="btn-sm" id="selectAll">Select All</button>
+          <button class="btn-sm" id="deselectAll">Deselect All</button>
+        </div>
+      </div>
+      <p class="controls-hint">Unchecked values will be grouped into an <strong>"Others"</strong> category.</p>
+      <div class="filter-search-wrap">
+        <input type="text" class="filter-search" id="filterSearch" placeholder="🔍  Search values…">
+      </div>
+      <div class="filter-checks" id="filterChecks"></div>
+    </section>
+
+    <!-- Chart Options -->
+    <section class="card options-card" id="optionsCard" style="display:none;">
+      <div class="options-row">
+        <div class="option-group">
+          <label class="option-label">Chart Type</label>
+          <div class="toggle-group" id="chartTypeToggle">
+            <button class="toggle-btn active" data-type="pie">🥧 Pie</button>
+            <button class="toggle-btn" data-type="doughnut">🍩 Doughnut</button>
+          </div>
+        </div>
+        <!-- Color Theme -->
+        <div class="option-group">
+          <label class="option-label">Color Palette</label>
+          <div class="toggle-group" id="paletteToggle">
+            <button class="toggle-btn active" data-palette="vibrant">🌈 Vibrant</button>
+            <button class="toggle-btn" data-palette="pastel">🧁 Pastel</button>
+            <button class="toggle-btn" data-palette="ocean">🌊 Ocean</button>
+            <button class="toggle-btn" data-palette="sunset">🌅 Sunset</button>
+          </div>
+        </div>
+        <div class="option-group">
+          <label class="option-label">Extras</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="animToggle">✨ Animations</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chart -->
+    <section class="card chart-card" id="chartCard" style="display:none;">
+      <div class="chart-header">
+        <h2 id="chartTitle">Distribution</h2>
+        <div class="chart-actions">
+          <button class="btn-sm btn-share" id="shareChart" title="Copy shareable link">🔗 Share</button>
+          <button class="btn-primary btn-download" id="downloadChart" title="Download chart as PNG">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download PNG
+          </button>
+        </div>
+      </div>
+      <div class="chart-layout" id="chartLayout">
+        <div class="chart-wrapper">
+          <canvas id="dataChart"></canvas>
+        </div>
+        <div class="side-legend" id="sideLegend"></div>
+      </div>
+      <div class="chart-stats" id="chartStats"></div>
+    </section>
+
+    <!-- Cross-Tab Analysis -->
+    <section class="card crosstab-card" id="crosstabCard" style="display:none;">
+      <h2>🔀 Cross-Tab Analysis</h2>
+      <p class="controls-hint">Pick two columns to see how their values relate in a grouped bar chart.</p>
+      <div class="export-row">
+        <div class="export-field">
+          <label class="option-label">Row Column</label>
+          <select id="crosstabCol1">
+            <option value="">— Column A —</option>
+          </select>
+        </div>
+        <div class="export-field">
+          <label class="option-label">Group Column</label>
+          <select id="crosstabCol2">
+            <option value="">— Column B —</option>
+          </select>
+        </div>
+      </div>
+      <div class="crosstab-chart-wrap" id="crosstabChartWrap" style="display:none;">
+        <canvas id="crosstabChart"></canvas>
+      </div>
+    </section>
+
+    <!-- CSV Export -->
+    <section class="card export-card" id="exportCard" style="display:none;">
+      <h2>📥 Export Filtered Data</h2>
+      <p class="controls-hint">Pick a column, then select one or more values. Download a CSV with only matching rows (all columns included).</p>
+      <div class="export-row">
+        <div class="export-field">
+          <label class="option-label">Filter Column</label>
+          <select id="exportColumnSelect">
+            <option value="">— Column —</option>
+          </select>
+        </div>
+      </div>
+      <div class="export-filter-section" id="exportFilterSection" style="display:none;">
+        <div class="filter-header">
+          <label class="option-label">Select Values</label>
+          <div class="filter-actions">
+            <button class="btn-sm" id="exportSelectAll">Select All</button>
+            <button class="btn-sm" id="exportDeselectAll">Deselect All</button>
+          </div>
+        </div>
+        <div class="filter-search-wrap">
+          <input type="text" class="filter-search" id="exportSearch" placeholder="🔍  Search values…">
+        </div>
+        <div class="filter-checks export-checks" id="exportChecks"></div>
+      </div>
+      <div class="export-preview" id="exportPreview" style="display:none;">
+        <span id="exportCount"></span> rows match
+      </div>
+      <button class="btn-primary btn-export" id="exportCsvBtn" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download Filtered CSV
+      </button>
+    </section>
+
+    <!-- Data Table -->
+    <section class="card table-card" id="tableCard" style="display:none;">
+      <div class="table-header-row">
+        <h2>📋 Data Preview <span class="badge" id="rowBadge"></span></h2>
+        <div class="table-actions">
+          <button class="btn-sm" id="downloadFullCsv" title="Download full data as CSV">📤 Download Full CSV</button>
+        </div>
+      </div>
+      <div class="filter-search-wrap">
+        <input type="text" class="filter-search" id="tableSearch" placeholder="🔍  Search rows…">
+      </div>
+      <div class="table-scroll">
+        <table id="dataTable">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <img src="Logo_HYA28.png" alt="HYA28" class="footer-logo">
+    <p>Developed by <strong>Harsh Apurva</strong></p>
+    <div class="footer-links">
+      <a href="mailto:harsh.bioinfo28@gmail.com" title="Email">📧 harsh.bioinfo28@gmail.com</a>
+      <a href="https://www.linkedin.com/in/harsh-apurva" target="_blank" rel="noopener noreferrer" title="LinkedIn">🔗 LinkedIn</a>
+    </div>
+  </footer>
+
+  <!-- Share toast -->
+  <div class="toast" id="shareToast">🔗 Link copied to clipboard!</div>
+
+  <script src="script.js"></script>
+</body>
+</html>

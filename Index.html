@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYA28 · Bioinformatics Toolkit</title>
+  <meta name="description" content="HYA28 Bioinformatics Toolkit – Data analysis and visualization tools by Harsh Apurva.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0b19;
+      --surface: rgba(255,255,255,0.035);
+      --border: rgba(255,255,255,0.07);
+      --text: #e4e4eb;
+      --text-muted: #8b8b9e;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108,92,231,0.35);
+      --success: #00cec9;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .blob { position: fixed; border-radius: 50%; filter: blur(140px); opacity: 0.3; pointer-events: none; z-index: 0; }
+    .blob-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -150px; animation: bf 22s ease-in-out infinite alternate; }
+    .blob-2 { width: 450px; height: 450px; background: #00cec9; bottom: -120px; right: -150px; animation: bf 26s ease-in-out infinite alternate-reverse; }
+    .blob-3 { width: 350px; height: 350px; background: #fd79a8; top: 40%; left: 55%; animation: bf 30s ease-in-out infinite alternate; }
+    @keyframes bf { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(50px,40px) scale(1.15)} }
+
+    .hero {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 80px 24px 28px;
+    }
+
+    .hero-logo {
+      width: 140px; height: 140px; border-radius: 50%; object-fit: cover;
+      box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(0,206,201,0.15);
+      margin-bottom: 28px;
+      animation: logoFloat 6s ease-in-out infinite;
+    }
+    @keyframes logoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+
+    .hero h1 {
+      font-size: 3rem; font-weight: 900; letter-spacing: -1px;
+      background: linear-gradient(135deg, #fff 20%, var(--accent-light) 60%, var(--success));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .hero .tagline {
+      color: var(--text-muted); font-size: 1.1rem; max-width: 540px; line-height: 1.7;
+      margin-bottom: 40px;
+    }
+    .hero .tagline em { color: var(--accent-light); font-style: normal; }
+
+    /* Tools */
+    .tools-section {
+      position: relative; z-index: 1;
+      max-width: 700px; width: 100%; margin: 0 auto;
+      padding: 0 24px 20px;
+    }
+    .tools-section h2 {
+      font-size: 1.05rem; text-transform: uppercase; letter-spacing: 2px;
+      color: var(--text-muted); margin-bottom: 18px; text-align: center;
+    }
+    .tool-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+      padding: 30px 28px; text-decoration: none; color: var(--text);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s;
+      display: flex; flex-direction: column; gap: 12px;
+      animation: fadeUp 0.5s ease both;
+    }
+    .tool-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      border-color: var(--accent);
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .tool-icon { font-size: 2.2rem; }
+    .tool-card h3 { font-size: 1.15rem; font-weight: 700; color: #fff; }
+    .tool-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; }
+    .tool-badge {
+      display: inline-block; align-self: flex-start;
+      padding: 4px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      background: rgba(0,206,201,0.15); color: var(--success);
+    }
+
+    /* Glass card */
+    .glass-card {
+      position: relative; z-index: 1;
+      max-width: 640px; margin: 0 auto;
+      padding: 0 24px 16px;
+    }
+    .glass-card .inner {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px 26px;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      font-size: 0.95rem; color: var(--text-muted); line-height: 1.75;
+      text-align: center;
+    }
+    .glass-card .inner strong { color: var(--accent-light); }
+    .glass-card .inner .emoji { font-size: 1.6rem; display: block; margin-bottom: 10px; }
+    .glass-card .inner em { color: #8b8b9e; }
+
+    /* Contact */
+    .contact-section {
+      position: relative; z-index: 1;
+      text-align: center; max-width: 640px; margin: 0 auto;
+      padding: 14px 24px 30px;
+    }
+    .contact-section p {
+      font-size: 0.92rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 14px;
+    }
+    .contact-section p strong { color: var(--text); }
+    .contact-links { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .contact-links a {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--accent-light); text-decoration: none; font-size: 0.88rem; font-weight: 600;
+      transition: all 0.3s;
+    }
+    .contact-links a:hover {
+      background: rgba(108,92,231,0.12); border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    footer {
+      position: relative; z-index: 1; text-align: center;
+      padding: 22px 20px 18px; border-top: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.82rem; margin-top: 10px;
+    }
+    footer strong { color: var(--accent-light); }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 2rem; }
+      .hero-logo { width: 100px; height: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <section class="hero">
+    <img src="Logo_HYA28.png" alt="HYA28 Logo" class="hero-logo">
+    <h1>HYA28 Toolkit</h1>
+    <p class="tagline">
+      Your one-stop shop for turning messy data into <em>beautiful science</em>. 
+      Upload CSVs, visualize distributions, and download figures that even your PI will approve of.
+    </p>
+  </section>
+
+  <section class="tools-section">
+    <h2>🧬 Tools</h2>
+    <a href="csv-visualizer.html" class="tool-card">
+      <span class="tool-icon">📊</span>
+      <h3>CSV Data Visualizer</h3>
+      <p>Upload a CSV, pick any column, filter values, and instantly generate interactive pie or doughnut charts. Export filtered data as CSV. Download publication-ready PNGs your reviewers won't complain about.</p>
+      <span class="tool-badge">Live</span>
+    </a>
+  </section>
+
+  <!-- Stay Tuned -->
+  <div class="glass-card">
+    <div class="inner">
+      <span class="emoji">🧪</span>
+      More tools are brewing in the lab! We're adding new features every weekend…
+      <em>probably.</em> Okay fine, <strong>every other weekend.</strong>
+      Look, science takes time, just ask anyone who's waited for a BLAST search on NCBI at 3 AM.
+      ☕🧬
+    </div>
+  </div>
+
+  <!-- DNA Joke -->
+  <div class="glass-card">
+    <div class="inner">
+      <span class="emoji">🧑‍🔬</span>
+      <strong>Fun fact:</strong> We tried hiring more developers but they all unzipped the wrong files.
+      Meanwhile, our code has fewer bugs than a sterile petri dish.
+      <em>...mostly.</em>
+    </div>
+  </div>
+
+  <!-- Bioinformatics Reality -->
+  <div class="glass-card">
+    <div class="inner">
+      <span class="emoji">💀</span>
+      If you've ever stared at a FASTA file at midnight wondering where your life went wrong,
+      this toolkit is for you. We don't judge, <strong>we've been there</strong>.
+      Your sequences are safe with us <em>(unlike that one time with the unsaved alignment).</em>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <section class="contact-section">
+    <p>
+      Got a <strong>brilliant idea</strong>, a <strong>bug report</strong>
+      <em>(impossible, our code is perfect)</em>,
+      a <strong>collaboration proposal</strong>,
+      or just want to debate whether <strong>Python or R</strong> is better for bioinformatics?
+      We're all ears 👇
+    </p>
+    <div class="contact-links">
+      <a href="mailto:harsh.bioinfo28@gmail.com">📧 Email Us</a>
+      <a href="https://www.linkedin.com/in/harsh-apurva" target="_blank" rel="noopener noreferrer">🔗 LinkedIn</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>Built with ☕, questionable sleep schedules, and an unhealthy amount of CTRL+C/CTRL+V by <strong>Harsh Apurva</strong></p>
+  </footer>
+
+</body>
+</html>
