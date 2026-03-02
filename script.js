@@ -28,10 +28,7 @@ const shareChartBtn  = document.getElementById('shareChart');
 const shareToast     = document.getElementById('shareToast');
 const animToggle     = document.getElementById('animToggle');
 const themeToggle    = document.getElementById('themeToggle');
-const crosstabCard   = document.getElementById('crosstabCard');
-const crosstabCol1   = document.getElementById('crosstabCol1');
-const crosstabCol2   = document.getElementById('crosstabCol2');
-const crosstabChartWrap = document.getElementById('crosstabChartWrap');
+
 const exportCard        = document.getElementById('exportCard');
 const exportColSel      = document.getElementById('exportColumnSelect');
 const exportFilterSec   = document.getElementById('exportFilterSection');
@@ -52,7 +49,7 @@ const downloadFullCsvBtn = document.getElementById('downloadFullCsv');
 let parsedData     = [];
 let headers        = [];
 let chartInstance  = null;
-let crosstabInstance = null;
+
 let currentColumn  = '';
 let allValueCounts = {};
 
@@ -186,18 +183,7 @@ function handleFile(file) {
       exportPreview.style.display = 'none';
       show(exportCard);
 
-      // Cross-tab selectors
-      const resetSel = (sel, label) => {
-        sel.innerHTML = `<option value="">— ${label} —</option>`;
-        headers.forEach(h => {
-          const o = document.createElement('option'); o.value = h; o.textContent = h;
-          sel.appendChild(o);
-        });
-      };
-      resetSel(crosstabCol1, 'Column A');
-      resetSel(crosstabCol2, 'Column B');
-      crosstabChartWrap.style.display = 'none';
-      show(crosstabCard);
+
 
       renderTable();
       hide(filterCard); hide(optionsCard); hide(chartCard);
@@ -622,83 +608,7 @@ function tryRestoreFromHash() {
   } catch (e) { /* ignore bad hash */ }
 }
 
-// ========================================================
-// ===== FEATURE 6: Cross-Tab Analysis ====================
-// ========================================================
-function renderCrossTab() {
-  const col1 = crosstabCol1.value;
-  const col2 = crosstabCol2.value;
-  if (!col1 || !col2 || col1 === col2) {
-    crosstabChartWrap.style.display = 'none';
-    return;
-  }
 
-  // Get unique values for each column (top 15 for readability)
-  const count1 = {};
-  const count2 = {};
-  parsedData.forEach(row => {
-    const v1 = (row[col1] ?? '').toString().trim(); if (v1) count1[v1] = (count1[v1] || 0) + 1;
-    const v2 = (row[col2] ?? '').toString().trim(); if (v2) count2[v2] = (count2[v2] || 0) + 1;
-  });
-
-  const top1 = Object.entries(count1).sort((a,b) => b[1]-a[1]).slice(0, 12).map(([v]) => v);
-  const top2 = Object.entries(count2).sort((a,b) => b[1]-a[1]).slice(0, 8).map(([v]) => v);
-
-  // Build matrix
-  const matrix = {};
-  top2.forEach(v2 => { matrix[v2] = {}; top1.forEach(v1 => { matrix[v2][v1] = 0; }); });
-  parsedData.forEach(row => {
-    const v1 = (row[col1] ?? '').toString().trim();
-    const v2 = (row[col2] ?? '').toString().trim();
-    if (top1.includes(v1) && top2.includes(v2)) matrix[v2][v1]++;
-  });
-
-  const palette = PALETTES[paletteName] || PALETTES.vibrant;
-  const datasets = top2.map((v2, i) => ({
-    label: v2,
-    data: top1.map(v1 => matrix[v2][v1]),
-    backgroundColor: palette[i % palette.length],
-    borderRadius: 4,
-    barPercentage: 0.8,
-    categoryPercentage: 0.85
-  }));
-
-  if (crosstabInstance) crosstabInstance.destroy();
-  crosstabChartWrap.style.display = '';
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
-  const tickColor = isDark ? '#8b8b9e' : '#6b6b80';
-
-  crosstabInstance = new Chart(document.getElementById('crosstabChart').getContext('2d'), {
-    type: 'bar',
-    data: { labels: top1, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: useAnimations ? {} : false,
-      scales: {
-        x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, maxRotation: 45 } },
-        y: { grid: { color: gridColor }, ticks: { color: tickColor } }
-      },
-      plugins: {
-        legend: {
-          display: true, position: 'top',
-          labels: { color: tickColor, font: { family: "'Inter', sans-serif", size: 11 }, usePointStyle: true, pointStyleWidth: 10, padding: 12 }
-        },
-        tooltip: {
-          backgroundColor: isDark ? 'rgba(26,26,46,0.95)' : 'rgba(255,255,255,0.95)',
-          titleColor: isDark ? '#fff' : '#1a1a2e',
-          bodyColor: isDark ? '#a29bfe' : '#6c5ce7',
-          borderColor: 'rgba(108,92,231,0.3)', borderWidth: 1, padding: 10, cornerRadius: 8
-        }
-      }
-    }
-  });
-}
-
-crosstabCol1.addEventListener('change', renderCrossTab);
-crosstabCol2.addEventListener('change', renderCrossTab);
 
 // ========================================================
 // ===== CSV Export (Multi-Value) ==========================
@@ -933,14 +843,12 @@ function resetAll() {
   fileInfo.style.display = 'none';
   dropZone.style.display = '';
   restoreDropZone();
-  [statsCard, controlsCard, filterCard, optionsCard, chartCard, exportCard, crosstabCard, tableCard].forEach(hide);
+  [statsCard, controlsCard, filterCard, optionsCard, chartCard, exportCard, tableCard].forEach(hide);
   chartStats.innerHTML = ''; filterChecks.innerHTML = ''; sideLegend.innerHTML = '';
   exportFilterSec.style.display = 'none';
   exportPreview.style.display = 'none';
   numericStatsSection.style.display = 'none';
-  crosstabChartWrap.style.display = 'none';
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-  if (crosstabInstance) { crosstabInstance.destroy(); crosstabInstance = null; }
 }
 
 // ===== Helpers =====

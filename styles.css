@@ -262,8 +262,8 @@ select option { background: var(--bg); color: var(--text); }
 .stat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .stat-label { font-weight: 600; color: var(--text); }
 
-/* ===== Cross-Tab ===== */
-.crosstab-chart-wrap { margin-top: 16px; max-height: 500px; position: relative; }
+
+
 
 /* ===== Export Card ===== */
 .export-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -318,6 +318,146 @@ footer strong { color: var(--accent-light); font-weight: 700; }
 .footer-links { display: flex; justify-content: center; gap: 20px; margin-top: 10px; flex-wrap: wrap; }
 .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.84rem; transition: color 0.2s; }
 .footer-links a:hover { color: var(--accent-light); }
+
+/* ===== Sequence Tools ===== */
+
+/* Textarea for sequence input */
+.seq-textarea {
+  width: 100%; padding: 14px 16px; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); font-family: 'Courier New', monospace; font-size: 0.88rem;
+  resize: vertical; outline: none; transition: border-color 0.2s;
+  line-height: 1.6;
+}
+[data-theme="light"] .seq-textarea { background: rgba(255,255,255,0.7); }
+.seq-textarea:focus { border-color: var(--accent); }
+.seq-textarea::placeholder { color: var(--text-muted); font-family: var(--font); }
+
+.seq-error {
+  margin-top: 12px; padding: 10px 16px; background: rgba(255,107,107,0.12);
+  border: 1px solid rgba(255,107,107,0.3); border-radius: 8px;
+  color: #ff6b6b; font-size: 0.88rem; font-weight: 600;
+}
+
+/* Sequence display box (reverse complement, protein) */
+.seq-display-box {
+  padding: 14px 16px; background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'Courier New', monospace; font-size: 0.82rem;
+  color: var(--accent-light); line-height: 1.8;
+  white-space: pre-wrap; word-break: break-all;
+  max-height: 200px; overflow-y: auto;
+}
+[data-theme="light"] .seq-display-box { background: rgba(0,0,0,0.02); color: var(--accent); }
+
+/* Base composition stats */
+.base-stats-grid { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+.base-stat { font-size: 0.92rem; display: flex; align-items: center; gap: 8px; }
+.base-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+/* Codon table mini bars */
+.mini-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+[data-theme="light"] .mini-bar { background: rgba(0,0,0,0.06); }
+.mini-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 4px; transition: width 0.4s ease; }
+
+/* 6-Frame translation */
+.frames-container { display: flex; flex-direction: column; gap: 12px; }
+.frame-card {
+  padding: 14px 16px; background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+.frame-card:hover { background: rgba(108,92,231,0.06); }
+.frame-label { font-size: 0.78rem; font-weight: 700; color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.frame-seq {
+  font-family: 'Courier New', monospace; font-size: 0.78rem; color: var(--text-muted);
+  word-break: break-all; line-height: 1.7;
+}
+.stop-codon { color: #ff6b6b; font-weight: 700; }
+
+/* ===== ORF Finder – Genome Browser ===== */
+.genome-browser { padding: 10px 0; }
+.genome-ruler {
+  display: flex; justify-content: space-between; padding: 0 60px 6px 60px;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+.genome-track { display: flex; align-items: center; margin-bottom: 6px; height: 28px; }
+.track-label {
+  width: 52px; flex-shrink: 0; font-size: 0.76rem; font-weight: 700;
+  color: var(--text-muted); text-align: right; padding-right: 8px;
+}
+.track-bar {
+  flex: 1; height: 22px; position: relative;
+  background: rgba(255,255,255,0.04); border-radius: 4px;
+  border: 1px solid var(--border);
+}
+[data-theme="light"] .track-bar { background: rgba(0,0,0,0.03); }
+.orf-bar {
+  position: absolute; top: 2px; height: 16px; border-radius: 3px;
+  cursor: pointer; opacity: 0.8; transition: opacity 0.2s, transform 0.2s;
+  min-width: 3px;
+}
+.orf-bar:hover { opacity: 1; transform: scaleY(1.3); z-index: 2; }
+.orf-bar.orf-selected { opacity: 1; outline: 2px solid #fff; outline-offset: 1px; z-index: 3; }
+
+/* ===== Restriction Map ===== */
+.restriction-map { padding: 10px 0; }
+.rmap-ruler {
+  display: flex; justify-content: space-between; padding: 0 60px 8px 60px;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+.rmap-track { display: flex; align-items: center; margin-bottom: 8px; height: 24px; }
+.rmap-label {
+  width: 56px; flex-shrink: 0; font-size: 0.74rem; font-weight: 700;
+  text-align: right; padding-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rmap-bar {
+  flex: 1; height: 10px; position: relative;
+  background: rgba(255,255,255,0.06); border-radius: 5px;
+  border: 1px solid var(--border);
+}
+[data-theme="light"] .rmap-bar { background: rgba(0,0,0,0.04); }
+.rmap-cut {
+  position: absolute; top: -5px; width: 3px; height: 20px;
+  border-radius: 1px; transform: translateX(-1px);
+}
+
+/* ===== Gel Electrophoresis ===== */
+.gel-container { overflow-x: auto; padding: 10px 0; }
+.gel-wrapper {
+  display: flex; gap: 0; min-width: fit-content;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  padding: 10px 6px;
+}
+[data-theme="light"] .gel-wrapper {
+  background: linear-gradient(180deg, #e8e8f0 0%, #d0d0dd 100%);
+}
+.gel-lane {
+  flex: 0 0 70px; display: flex; flex-direction: column; align-items: center;
+}
+.gel-lane-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--text-muted);
+  margin-bottom: 6px; text-align: center; white-space: nowrap;
+  max-width: 64px; overflow: hidden; text-overflow: ellipsis;
+}
+.gel-lane-track {
+  position: relative; width: 40px; height: 320px;
+  background: rgba(255,255,255,0.03); border-radius: 3px;
+}
+[data-theme="light"] .gel-lane-track { background: rgba(0,0,0,0.03); }
+.gel-band {
+  position: absolute; left: 4px; right: 4px; height: 4px;
+  border-radius: 2px; transition: opacity 0.2s;
+}
+.gel-ladder-band { background: rgba(255,255,255,0.4); height: 2px; }
+[data-theme="light"] .gel-ladder-band { background: rgba(0,0,0,0.35); }
+.gel-size {
+  position: absolute; left: calc(100% + 4px); top: -4px;
+  font-size: 0.6rem; color: var(--text-muted); white-space: nowrap;
+  pointer-events: none;
+}
+.gel-band:hover { opacity: 1 !important; }
 
 /* ===== Responsive ===== */
 @media (max-width: 700px) {

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYA28 · Interactive ORF Finder</title>
+  <meta name="description" content="Find open reading frames in DNA sequences. Visualize ORFs across all 6 reading frames in a genome-browser-style interactive view.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <header>
+    <a href="index.html" class="home-link" title="Back to HYA28 Toolkit">← Home</a>
+    <div class="header-inner">
+      <a href="index.html" title="Back to HYA28 Toolkit"><img src="Logo_HYA28.png" alt="HYA28 Logo" class="header-logo"></a>
+      <div>
+        <h1>Interactive ORF Finder</h1>
+        <p class="subtitle">Scan · Visualize · Translate</p>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme">🌙</button>
+  </header>
+
+  <main>
+    <!-- Input -->
+    <section class="card" id="inputCard">
+      <h2>🧬 Input Nucleotide Sequence</h2>
+      <p class="controls-hint">Paste a DNA sequence or upload a FASTA file. ORFs will be found in all 6 reading frames.</p>
+      <div class="upload-zone" id="dropZone" style="margin-bottom:16px;min-height:auto;padding:20px;">
+        <p class="upload-text" style="margin-bottom:8px;">Drag & drop a <strong>.fasta / .fa / .txt</strong> file</p>
+        <label for="fastaUpload" class="btn-primary" style="font-size:0.84rem;padding:8px 18px;">Browse Files</label>
+        <input type="file" id="fastaUpload" accept=".fasta,.fa,.fna,.faa,.txt" hidden>
+      </div>
+      <textarea id="seqInput" class="seq-textarea" rows="6" placeholder="Or paste nucleotide sequence here (raw or FASTA)…" spellcheck="false"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;align-items:center;">
+        <div class="option-group" style="min-width:180px;">
+          <label class="option-label">Min ORF Length (nt)</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" id="minLenSlider" min="30" max="600" value="75" step="3" style="flex:1;">
+            <span id="minLenVal" style="font-weight:700;color:var(--accent-light);min-width:40px;">75</span>
+          </div>
+        </div>
+        <div class="option-group" style="min-width:180px;">
+          <label class="option-label">Start Codons</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-start="atg" id="startATG">ATG only</button>
+            <button class="toggle-btn" data-start="alt" id="startAlt">+ GTG, TTG</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn-primary" id="findBtn">🔍 Find ORFs</button>
+        <button class="btn-clear" id="clearBtn">✕ Clear</button>
+      </div>
+      <div id="seqError" class="seq-error" style="display:none;"></div>
+    </section>
+
+    <!-- Results -->
+    <div id="resultsContainer" style="display:none;">
+
+      <!-- Summary -->
+      <section class="card">
+        <h2>📋 ORF Summary</h2>
+        <div class="stats-grid" id="summaryGrid"></div>
+      </section>
+
+      <!-- Genome Browser -->
+      <section class="card">
+        <h2>🗺️ Genome Browser</h2>
+        <p class="controls-hint">Click any ORF bar to see its details. Colors represent reading frames.</p>
+        <div id="genomeBrowser" class="genome-browser"></div>
+      </section>
+
+      <!-- ORF Detail -->
+      <section class="card" id="orfDetailCard" style="display:none;">
+        <h2>🔬 ORF Details</h2>
+        <div class="stats-grid" id="orfDetailGrid"></div>
+        <div style="margin-top:14px;">
+          <label class="option-label">Protein Translation</label>
+          <div class="seq-display-box" id="orfProteinBox" style="max-height:150px;overflow-y:auto;"></div>
+        </div>
+      </section>
+
+      <!-- ORF Table -->
+      <section class="card">
+        <h2>📊 All ORFs <span class="badge" id="orfCount"></span></h2>
+        <div class="table-scroll" style="max-height:400px;">
+          <table id="orfTable">
+            <thead><tr><th>#</th><th>Frame</th><th>Start</th><th>End</th><th>Length (nt)</th><th>Length (aa)</th><th>Protein Preview</th></tr></thead>
+            <tbody id="orfBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <img src="Logo_HYA28.png" alt="HYA28" class="footer-logo">
+    <p>Developed by <strong>Harsh Apurva</strong></p>
+    <div class="footer-links">
+      <a href="mailto:harsh.bioinfo28@gmail.com" title="Email">📧 harsh.bioinfo28@gmail.com</a>
+      <a href="https://www.linkedin.com/in/harsh-apurva" target="_blank" rel="noopener noreferrer" title="LinkedIn">🔗 LinkedIn</a>
+    </div>
+  </footer>
+
+<script>
+// ===== Theme =====
+const themeToggle = document.getElementById('themeToggle');
+function applyTheme(t) { document.documentElement.setAttribute('data-theme', t); themeToggle.textContent = t === 'dark' ? '🌙' : '☀️'; }
+applyTheme(localStorage.getItem('hya28-theme') || 'dark');
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('hya28-theme', next); applyTheme(next);
+});
+
+// ===== Codon Table =====
+const CODON_TABLE = {
+  'TTT':'F','TTC':'F','TTA':'L','TTG':'L','CTT':'L','CTC':'L','CTA':'L','CTG':'L',
+  'ATT':'I','ATC':'I','ATA':'I','ATG':'M','GTT':'V','GTC':'V','GTA':'V','GTG':'V',
+  'TCT':'S','TCC':'S','TCA':'S','TCG':'S','CCT':'P','CCC':'P','CCA':'P','CCG':'P',
+  'ACT':'T','ACC':'T','ACA':'T','ACG':'T','GCT':'A','GCC':'A','GCA':'A','GCG':'A',
+  'TAT':'Y','TAC':'Y','TAA':'*','TAG':'*','TGT':'C','TGC':'C','TGA':'*','TGG':'W',
+  'CGT':'R','CGC':'R','CGA':'R','CGG':'R','AGT':'S','AGC':'S','AGA':'R','AGG':'R',
+  'GAT':'D','GAC':'D','GAA':'E','GAG':'E','GGT':'G','GGC':'G','GGA':'G','GGG':'G'
+};
+
+const STOP_CODONS = new Set(['TAA', 'TAG', 'TGA']);
+const FRAME_COLORS = ['#6c5ce7', '#00cec9', '#fd79a8', '#0984e3', '#e17055', '#00b894'];
+
+// ===== DOM =====
+const seqInput = document.getElementById('seqInput');
+const findBtn = document.getElementById('findBtn');
+const clearBtn = document.getElementById('clearBtn');
+const seqError = document.getElementById('seqError');
+const minLenSlider = document.getElementById('minLenSlider');
+const minLenVal = document.getElementById('minLenVal');
+const dropZone = document.getElementById('dropZone');
+const fastaUpload = document.getElementById('fastaUpload');
+
+let startCodons = ['ATG'];
+let allOrfs = [];
+
+// ===== File Upload =====
+dropZone.addEventListener('click', (e) => { if (e.target.tagName !== 'LABEL') fastaUpload.click(); });
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFastaFile(file);
+});
+fastaUpload.addEventListener('change', (e) => { if (e.target.files[0]) readFastaFile(e.target.files[0]); });
+
+function readFastaFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => { seqInput.value = e.target.result; };
+  reader.readAsText(file);
+}
+
+minLenSlider.addEventListener('input', () => { minLenVal.textContent = minLenSlider.value; });
+
+// Start codon toggle
+document.getElementById('startATG').addEventListener('click', () => {
+  startCodons = ['ATG'];
+  document.getElementById('startATG').classList.add('active');
+  document.getElementById('startAlt').classList.remove('active');
+});
+document.getElementById('startAlt').addEventListener('click', () => {
+  startCodons = ['ATG', 'GTG', 'TTG'];
+  document.getElementById('startAlt').classList.add('active');
+  document.getElementById('startATG').classList.remove('active');
+});
+
+// ===== Parse =====
+function parseFasta(raw) {
+  return raw.split(/\r?\n/).filter(l => !l.trim().startsWith('>')).join('').replace(/\s+/g, '').toUpperCase();
+}
+
+function reverseComplement(seq) {
+  const comp = { 'A':'T','T':'A','G':'C','C':'G' };
+  return seq.split('').reverse().map(c => comp[c] || c).join('');
+}
+
+function translateSeq(seq) {
+  let protein = '';
+  for (let i = 0; i <= seq.length - 3; i += 3) {
+    protein += CODON_TABLE[seq.slice(i, i + 3)] || '?';
+  }
+  return protein;
+}
+
+// ===== Find ORFs =====
+function findORFs(seq, minLen) {
+  const orfs = [];
+  const revComp = reverseComplement(seq);
+  const seqLen = seq.length;
+
+  // Forward frames
+  for (let frame = 0; frame < 3; frame++) {
+    scanFrame(seq, frame, `+${frame + 1}`, orfs, minLen, seqLen, false);
+  }
+  // Reverse frames
+  for (let frame = 0; frame < 3; frame++) {
+    scanFrame(revComp, frame, `-${frame + 1}`, orfs, minLen, seqLen, true);
+  }
+
+  orfs.sort((a, b) => b.length - a.length);
+  return orfs;
+}
+
+function scanFrame(seq, frameOffset, frameLabel, orfs, minLen, seqLen, isReverse) {
+  let startPositions = [];
+  for (let i = frameOffset; i <= seq.length - 3; i += 3) {
+    const codon = seq.slice(i, i + 3);
+    if (startCodons.includes(codon)) {
+      startPositions.push(i);
+    }
+    if (STOP_CODONS.has(codon)) {
+      for (const startPos of startPositions) {
+        const orfLen = i + 3 - startPos;
+        if (orfLen >= minLen) {
+          const orfSeq = seq.slice(startPos, i + 3);
+          const protein = translateSeq(orfSeq);
+          let genomeStart, genomeEnd;
+          if (isReverse) {
+            genomeStart = seqLen - (i + 3);
+            genomeEnd = seqLen - startPos;
+          } else {
+            genomeStart = startPos;
+            genomeEnd = i + 3;
+          }
+          orfs.push({
+            start: genomeStart,
+            end: genomeEnd,
+            frame: frameLabel,
+            length: orfLen,
+            protein: protein,
+            aaLength: Math.floor(orfLen / 3)
+          });
+        }
+      }
+      startPositions = [];
+    }
+  }
+}
+
+// ===== Render =====
+function renderSummary(orfs, seqLen) {
+  const grid = document.getElementById('summaryGrid');
+  const frames = {};
+  orfs.forEach(o => { frames[o.frame] = (frames[o.frame] || 0) + 1; });
+  const longest = orfs.length > 0 ? orfs[0] : null;
+  grid.innerHTML = `
+    <div class="stat-box"><div class="stat-label">Sequence Length</div><div class="stat-value">${seqLen.toLocaleString()} bp</div></div>
+    <div class="stat-box"><div class="stat-label">Total ORFs</div><div class="stat-value">${orfs.length}</div></div>
+    <div class="stat-box"><div class="stat-label">Longest ORF</div><div class="stat-value">${longest ? longest.length + ' nt' : 'N/A'}</div></div>
+    <div class="stat-box"><div class="stat-label">Frames with ORFs</div><div class="stat-value">${Object.keys(frames).length} / 6</div></div>
+  `;
+}
+
+function renderGenomeBrowser(orfs, seqLen) {
+  const browser = document.getElementById('genomeBrowser');
+  const frameOrder = ['+1', '+2', '+3', '-1', '-2', '-3'];
+  const grouped = {};
+  frameOrder.forEach(f => grouped[f] = []);
+  orfs.forEach(o => { if (grouped[o.frame]) grouped[o.frame].push(o); });
+
+  let html = `<div class="genome-ruler"><div class="ruler-label">0</div><div class="ruler-label">${Math.floor(seqLen/4)}</div><div class="ruler-label">${Math.floor(seqLen/2)}</div><div class="ruler-label">${Math.floor(3*seqLen/4)}</div><div class="ruler-label">${seqLen}</div></div>`;
+
+  frameOrder.forEach((frame, fi) => {
+    const orfBars = grouped[frame];
+    const color = FRAME_COLORS[fi];
+    const direction = frame.startsWith('+') ? '→' : '←';
+    html += `<div class="genome-track">
+      <div class="track-label">${direction} ${frame}</div>
+      <div class="track-bar">`;
+    orfBars.forEach((orf, idx) => {
+      const left = (orf.start / seqLen * 100).toFixed(2);
+      const width = Math.max(((orf.end - orf.start) / seqLen * 100), 0.3).toFixed(2);
+      html += `<div class="orf-bar" style="left:${left}%;width:${width}%;background:${color};" data-orf-idx="${orfs.indexOf(orf)}" title="Frame ${frame}: ${orf.start}-${orf.end} (${orf.length}nt)"></div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  browser.innerHTML = html;
+
+  // Click events
+  browser.querySelectorAll('.orf-bar').forEach(bar => {
+    bar.addEventListener('click', () => {
+      const idx = parseInt(bar.dataset.orfIdx);
+      showOrfDetail(allOrfs[idx]);
+      // highlight
+      browser.querySelectorAll('.orf-bar').forEach(b => b.classList.remove('orf-selected'));
+      bar.classList.add('orf-selected');
+    });
+  });
+}
+
+function showOrfDetail(orf) {
+  const card = document.getElementById('orfDetailCard');
+  card.style.display = 'block';
+  document.getElementById('orfDetailGrid').innerHTML = `
+    <div class="stat-box"><div class="stat-label">Frame</div><div class="stat-value">${orf.frame}</div></div>
+    <div class="stat-box"><div class="stat-label">Start</div><div class="stat-value">${orf.start}</div></div>
+    <div class="stat-box"><div class="stat-label">End</div><div class="stat-value">${orf.end}</div></div>
+    <div class="stat-box"><div class="stat-label">Length</div><div class="stat-value">${orf.length} nt (${orf.aaLength} aa)</div></div>
+  `;
+  const proteinBox = document.getElementById('orfProteinBox');
+  let formatted = '';
+  for (let i = 0; i < orf.protein.length; i += 60) formatted += orf.protein.slice(i, i + 60) + '\n';
+  proteinBox.textContent = formatted.trimEnd();
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function renderOrfTable(orfs) {
+  document.getElementById('orfCount').textContent = orfs.length;
+  const body = document.getElementById('orfBody');
+  body.innerHTML = orfs.map((o, i) => `
+    <tr class="orf-row" data-idx="${i}" style="cursor:pointer;">
+      <td>${i + 1}</td>
+      <td><span style="color:${FRAME_COLORS[['+1','+2','+3','-1','-2','-3'].indexOf(o.frame)]};font-weight:700;">${o.frame}</span></td>
+      <td>${o.start}</td>
+      <td>${o.end}</td>
+      <td>${o.length}</td>
+      <td>${o.aaLength}</td>
+      <td><code style="font-size:0.78rem;">${o.protein.slice(0, 30)}${o.protein.length > 30 ? '…' : ''}</code></td>
+    </tr>
+  `).join('');
+
+  body.querySelectorAll('.orf-row').forEach(row => {
+    row.addEventListener('click', () => {
+      showOrfDetail(allOrfs[parseInt(row.dataset.idx)]);
+    });
+  });
+}
+
+// ===== Main =====
+findBtn.addEventListener('click', () => {
+  seqError.style.display = 'none';
+  const raw = seqInput.value.trim();
+  if (!raw) { seqError.textContent = 'Please paste a nucleotide sequence.'; seqError.style.display = 'block'; return; }
+
+  const seq = parseFasta(raw);
+  if (!/^[ACGT]+$/.test(seq)) { seqError.textContent = 'Invalid characters found. Only A, C, G, T are allowed for DNA.'; seqError.style.display = 'block'; return; }
+
+  const minLen = parseInt(minLenSlider.value);
+  allOrfs = findORFs(seq, minLen);
+
+  document.getElementById('resultsContainer').style.display = 'block';
+  document.getElementById('orfDetailCard').style.display = 'none';
+  renderSummary(allOrfs, seq.length);
+  renderGenomeBrowser(allOrfs, seq.length);
+  renderOrfTable(allOrfs);
+
+  document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+clearBtn.addEventListener('click', () => {
+  seqInput.value = '';
+  seqError.style.display = 'none';
+  document.getElementById('resultsContainer').style.display = 'none';
+  allOrfs = [];
+});
+</script>
+</body>
+</html>

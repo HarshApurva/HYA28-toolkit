@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HYA28 · Sequence Analyzer</title>
+  <meta name="description" content="All-in-one DNA/Protein sequence analysis: GC content, codon usage, reverse complement, 6-frame translation, amino acid frequency, and molecular weight. Supports multi-FASTA.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Multi-sequence tabs */
+    .seq-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+    .seq-tab {
+      padding: 8px 18px; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-muted); font-size: 0.82rem; font-family: var(--font);
+      cursor: pointer; transition: all 0.2s; white-space: nowrap; max-width: 240px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    [data-theme="light"] .seq-tab { background: rgba(0,0,0,0.03); }
+    .seq-tab:hover { background: rgba(108,92,231,0.1); color: var(--text); }
+    .seq-tab.active { background: rgba(108,92,231,0.2); border-color: var(--accent); color: var(--accent-light); font-weight: 600; }
+    .seq-panel { display: none; }
+    .seq-panel.active { display: block; }
+    .multi-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(0,206,201,0.1); border: 1px solid rgba(0,206,201,0.2); border-radius: 8px; font-size: 0.85rem; color: var(--success); font-weight: 600; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <header>
+    <a href="index.html" class="home-link" title="Back to HYA28 Toolkit">← Home</a>
+    <div class="header-inner">
+      <a href="index.html" title="Back to HYA28 Toolkit"><img src="Logo_HYA28.png" alt="HYA28 Logo" class="header-logo"></a>
+      <div>
+        <h1>Sequence Analyzer</h1>
+        <p class="subtitle">Paste · Detect · Analyze · Visualize</p>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme">🌙</button>
+  </header>
+
+  <main>
+    <!-- Input Card -->
+    <section class="card" id="inputCard">
+      <h2>🧬 Input Sequence</h2>
+      <p class="controls-hint">Paste a raw sequence or upload FASTA file(s). Supports <strong>multi-FASTA</strong> — each entry is analyzed separately. We auto-detect DNA vs Protein.</p>
+      <div class="upload-zone" id="dropZone" style="margin-bottom:16px;min-height:auto;padding:20px;">
+        <p class="upload-text" style="margin-bottom:8px;">Drag & drop <strong>.fasta / .fa / .txt</strong> file(s)</p>
+        <label for="fastaUpload" class="btn-primary" style="font-size:0.84rem;padding:8px 18px;">Browse Files</label>
+        <input type="file" id="fastaUpload" accept=".fasta,.fa,.fna,.faa,.txt" hidden multiple>
+      </div>
+      <textarea id="seqInput" class="seq-textarea" rows="7" placeholder="Or paste your sequence(s) here (FASTA or raw)…&#10;&#10;Multi-FASTA example:&#10;>Seq1 description&#10;ATGGCTAAATGA&#10;>Seq2 description&#10;MKWVTFISLLLF" spellcheck="false"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+        <button class="btn-primary" id="analyzeBtn">🔬 Analyze</button>
+        <button class="btn-clear" id="clearBtn">✕ Clear</button>
+      </div>
+      <div id="seqError" class="seq-error" style="display:none;"></div>
+    </section>
+
+    <!-- Results Container (dynamically populated) -->
+    <div id="resultsContainer" style="display:none;"></div>
+  </main>
+
+  <footer>
+    <img src="Logo_HYA28.png" alt="HYA28" class="footer-logo">
+    <p>Developed by <strong>Harsh Apurva</strong></p>
+    <div class="footer-links">
+      <a href="mailto:harsh.bioinfo28@gmail.com" title="Email">📧 harsh.bioinfo28@gmail.com</a>
+      <a href="https://www.linkedin.com/in/harsh-apurva" target="_blank" rel="noopener noreferrer" title="LinkedIn">🔗 LinkedIn</a>
+    </div>
+  </footer>
+
+  <div class="toast" id="copyToast">📋 Copied to clipboard!</div>
+
+<script>
+// ===== Theme Toggle =====
+const themeToggle = document.getElementById('themeToggle');
+function applyTheme(t) { document.documentElement.setAttribute('data-theme', t); themeToggle.textContent = t === 'dark' ? '🌙' : '☀️'; }
+const savedTheme = localStorage.getItem('hya28-theme') || 'dark';
+applyTheme(savedTheme);
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('hya28-theme', next); applyTheme(next);
+});
+
+// ===== Codon Table (Standard Genetic Code) =====
+const CODON_TABLE = {
+  'TTT':'F','TTC':'F','TTA':'L','TTG':'L',
+  'CTT':'L','CTC':'L','CTA':'L','CTG':'L',
+  'ATT':'I','ATC':'I','ATA':'I','ATG':'M',
+  'GTT':'V','GTC':'V','GTA':'V','GTG':'V',
+  'TCT':'S','TCC':'S','TCA':'S','TCG':'S',
+  'CCT':'P','CCC':'P','CCA':'P','CCG':'P',
+  'ACT':'T','ACC':'T','ACA':'T','ACG':'T',
+  'GCT':'A','GCC':'A','GCA':'A','GCG':'A',
+  'TAT':'Y','TAC':'Y','TAA':'*','TAG':'*',
+  'TGT':'C','TGC':'C','TGA':'*','TGG':'W',
+  'CGT':'R','CGC':'R','CGA':'R','CGG':'R',
+  'AGT':'S','AGC':'S','AGA':'R','AGG':'R',
+  'GAT':'D','GAC':'D','GAA':'E','GAG':'E',
+  'GGT':'G','GGC':'G','GGA':'G','GGG':'G'
+};
+
+const AA_WEIGHTS = {
+  'A':89.09,'R':174.20,'N':132.12,'D':133.10,'C':121.16,
+  'E':147.13,'Q':146.15,'G':75.03,'H':155.16,'I':131.17,
+  'L':131.17,'K':146.19,'M':149.21,'F':165.19,'P':115.13,
+  'S':105.09,'T':119.12,'W':204.23,'Y':181.19,'V':117.15
+};
+
+const AA_NAMES = {
+  'A':'Alanine','R':'Arginine','N':'Asparagine','D':'Aspartic acid','C':'Cysteine',
+  'E':'Glutamic acid','Q':'Glutamine','G':'Glycine','H':'Histidine','I':'Isoleucine',
+  'L':'Leucine','K':'Lysine','M':'Methionine','F':'Phenylalanine','P':'Proline',
+  'S':'Serine','T':'Threonine','W':'Tryptophan','Y':'Tyrosine','V':'Valine'
+};
+
+const VALID_AA = new Set(Object.keys(AA_WEIGHTS));
+const VALID_NUC = new Set(['A','C','G','T']);
+
+// ===== DOM =====
+const seqInput = document.getElementById('seqInput');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const clearBtn = document.getElementById('clearBtn');
+const seqError = document.getElementById('seqError');
+const resultsContainer = document.getElementById('resultsContainer');
+const dropZone = document.getElementById('dropZone');
+const fastaUpload = document.getElementById('fastaUpload');
+
+let chartInstances = []; // track all charts for cleanup
+
+// ===== File Upload (supports multiple files) =====
+dropZone.addEventListener('click', (e) => { if (e.target.tagName !== 'LABEL') fastaUpload.click(); });
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) readMultipleFiles(files);
+});
+fastaUpload.addEventListener('change', (e) => { if (e.target.files.length > 0) readMultipleFiles(e.target.files); });
+
+function readMultipleFiles(files) {
+  const promises = [];
+  for (const file of files) {
+    promises.push(new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsText(file);
+    }));
+  }
+  Promise.all(promises).then(contents => {
+    seqInput.value = contents.join('\n');
+  });
+}
+
+// ===== Parse Multi-FASTA =====
+function parseMultiFasta(raw) {
+  const lines = raw.split(/\r?\n/);
+  const entries = [];
+  let currentHeader = null;
+  let currentSeq = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('>')) {
+      // Save previous entry
+      if (currentHeader !== null || currentSeq.length > 0) {
+        entries.push({ header: currentHeader || 'Unnamed Sequence', seq: currentSeq.toUpperCase() });
+      }
+      currentHeader = trimmed.slice(1).trim() || 'Unnamed Sequence';
+      currentSeq = '';
+    } else {
+      currentSeq += trimmed.replace(/\s+/g, '');
+    }
+  }
+  // Push last entry
+  if (currentSeq.length > 0) {
+    entries.push({ header: currentHeader || 'Sequence', seq: currentSeq.toUpperCase() });
+  }
+
+  return entries;
+}
+
+function detectType(seq) {
+  for (const ch of seq) {
+    if (!VALID_NUC.has(ch)) return 'protein';
+  }
+  return 'nucleotide';
+}
+
+function validateSequence(seq, type) {
+  const validSet = type === 'nucleotide' ? VALID_NUC : VALID_AA;
+  const invalid = [];
+  for (let i = 0; i < seq.length; i++) {
+    if (!validSet.has(seq[i]) && seq[i] !== '*') {
+      invalid.push({ char: seq[i], pos: i + 1 });
+    }
+  }
+  return invalid;
+}
+
+// ===== Analysis Functions =====
+function analyzeNucleotide(seq) {
+  const len = seq.length;
+  let A = 0, T = 0, G = 0, C = 0;
+  for (const ch of seq) {
+    if (ch === 'A') A++; else if (ch === 'T') T++; else if (ch === 'G') G++; else if (ch === 'C') C++;
+  }
+  const gcPct = ((G + C) / len * 100).toFixed(2);
+  const atPct = ((A + T) / len * 100).toFixed(2);
+
+  const codonCounts = {};
+  const totalCodons = Math.floor(len / 3);
+  for (let i = 0; i <= len - 3; i += 3) {
+    const codon = seq.slice(i, i + 3);
+    codonCounts[codon] = (codonCounts[codon] || 0) + 1;
+  }
+
+  const compMap = { 'A':'T','T':'A','G':'C','C':'G' };
+  const revComp = seq.split('').reverse().map(c => compMap[c] || c).join('');
+
+  const frames = [];
+  for (let f = 0; f < 3; f++) {
+    let protein = '';
+    for (let i = f; i <= seq.length - 3; i += 3) protein += CODON_TABLE[seq.slice(i, i + 3)] || '?';
+    frames.push({ label: `+${f + 1}`, protein, direction: 'Forward' });
+  }
+  for (let f = 0; f < 3; f++) {
+    let protein = '';
+    for (let i = f; i <= revComp.length - 3; i += 3) protein += CODON_TABLE[revComp.slice(i, i + 3)] || '?';
+    frames.push({ label: `-${f + 1}`, protein, direction: 'Reverse' });
+  }
+
+  return { len, A, T, G, C, gcPct, atPct, codonCounts, totalCodons, revComp, frames };
+}
+
+function analyzeProtein(seq) {
+  const len = seq.length;
+  const aaCounts = {};
+  for (const aa of Object.keys(AA_WEIGHTS)) aaCounts[aa] = 0;
+  for (const ch of seq) { if (aaCounts.hasOwnProperty(ch)) aaCounts[ch]++; }
+  let mw = 0;
+  for (const ch of seq) { if (AA_WEIGHTS[ch]) mw += AA_WEIGHTS[ch]; }
+  mw -= (len - 1) * 18.015;
+  return { len, aaCounts, mw };
+}
+
+// ===== Rendering (per-sequence panel) =====
+
+function showError(msg) { seqError.textContent = msg; seqError.style.display = 'block'; }
+function hideError() { seqError.style.display = 'none'; }
+
+function showToast() {
+  const toast = document.getElementById('copyToast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function buildNucleotidePanel(data, idx) {
+  return `
+    <section class="card">
+      <h2>📋 Sequence Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">Type</div><div class="stat-value">🧬 Nucleotide</div></div>
+        <div class="stat-box"><div class="stat-label">Length</div><div class="stat-value">${data.len.toLocaleString()} bp</div></div>
+        <div class="stat-box"><div class="stat-label">GC Content</div><div class="stat-value">${data.gcPct}%</div></div>
+        <div class="stat-box"><div class="stat-label">AT Content</div><div class="stat-value">${data.atPct}%</div></div>
+        <div class="stat-box"><div class="stat-label">Total Codons</div><div class="stat-value">${data.totalCodons.toLocaleString()}</div></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>🧪 Base Composition</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:center;">
+        <div style="max-width:280px;width:100%;"><canvas id="gcChart_${idx}"></canvas></div>
+        <div class="base-stats-grid">
+          <div class="base-stat"><span class="base-dot" style="background:#6c5ce7"></span> G: <strong>${data.G.toLocaleString()}</strong> (${(data.G/data.len*100).toFixed(1)}%)</div>
+          <div class="base-stat"><span class="base-dot" style="background:#00cec9"></span> C: <strong>${data.C.toLocaleString()}</strong> (${(data.C/data.len*100).toFixed(1)}%)</div>
+          <div class="base-stat"><span class="base-dot" style="background:#fd79a8"></span> A: <strong>${data.A.toLocaleString()}</strong> (${(data.A/data.len*100).toFixed(1)}%)</div>
+          <div class="base-stat"><span class="base-dot" style="background:#fdcb6e"></span> T: <strong>${data.T.toLocaleString()}</strong> (${(data.T/data.len*100).toFixed(1)}%)</div>
+          <div class="base-stat" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">GC%: <strong style="color:#6c5ce7">${data.gcPct}%</strong></div>
+          <div class="base-stat">AT%: <strong style="color:#fd79a8">${data.atPct}%</strong></div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>🧬 Codon Usage Table</h2>
+      <p class="controls-hint">Frequency of each trinucleotide codon in the sequence.</p>
+      <div class="table-scroll" style="max-height:420px;">
+        <table><thead><tr><th>Codon</th><th>Amino Acid</th><th>Count</th><th>Frequency %</th><th>Bar</th></tr></thead>
+        <tbody>${buildCodonRows(data)}</tbody></table>
+      </div>
+    </section>
+    <section class="card">
+      <h2>🔄 Reverse Complement</h2>
+      <div class="seq-display-box" id="revCompBox_${idx}">${formatSeq(data.revComp)}</div>
+      <button class="btn-sm copy-rc-btn" data-idx="${idx}" style="margin-top:10px;">📋 Copy</button>
+    </section>
+    <section class="card">
+      <h2>🧫 6-Frame Translation</h2>
+      <p class="controls-hint">All six reading frames translated to amino acids. <code>*</code> = stop codon.</p>
+      <div class="frames-container">${data.frames.map(f => `
+        <div class="frame-card">
+          <div class="frame-label">${f.direction} Frame ${f.label}</div>
+          <div class="frame-seq">${f.protein.replace(/\*/g, '<span class="stop-codon">*</span>')}</div>
+        </div>`).join('')}
+      </div>
+    </section>`;
+}
+
+function buildProteinPanel(data, idx) {
+  return `
+    <section class="card">
+      <h2>📋 Sequence Summary</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">Type</div><div class="stat-value">🔬 Protein</div></div>
+        <div class="stat-box"><div class="stat-label">Length</div><div class="stat-value">${data.len.toLocaleString()} aa</div></div>
+        <div class="stat-box"><div class="stat-label">Molecular Weight</div><div class="stat-value">${data.mw.toFixed(2)} Da</div></div>
+        <div class="stat-box"><div class="stat-label">MW (kDa)</div><div class="stat-value">${(data.mw / 1000).toFixed(3)} kDa</div></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>🔬 Amino Acid Frequency</h2>
+      <div style="display:flex;flex-wrap:wrap;gap:24px;">
+        <div style="flex:1;min-width:300px;max-width:600px;"><canvas id="aaChart_${idx}"></canvas></div>
+        <div style="flex:1;min-width:240px;">
+          <div class="table-scroll" style="max-height:400px;">
+            <table><thead><tr><th>AA</th><th>Name</th><th>Count</th><th>%</th></tr></thead>
+            <tbody>${buildAARows(data)}</tbody></table>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>⚖️ Molecular Weight</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-label">Molecular Weight</div><div class="stat-value">${data.mw.toFixed(2)} Da</div></div>
+        <div class="stat-box"><div class="stat-label">In kDa</div><div class="stat-value">${(data.mw / 1000).toFixed(3)} kDa</div></div>
+        <div class="stat-box"><div class="stat-label">Residues</div><div class="stat-value">${data.len}</div></div>
+        <div class="stat-box"><div class="stat-label">Water Lost</div><div class="stat-value">${((data.len - 1) * 18.015).toFixed(2)} Da</div></div>
+      </div>
+    </section>`;
+}
+
+function buildCodonRows(data) {
+  const sorted = Object.entries(data.codonCounts).sort((a, b) => b[1] - a[1]);
+  const maxCount = sorted.length > 0 ? sorted[0][1] : 1;
+  return sorted.map(([codon, count]) => {
+    const pct = (count / data.totalCodons * 100).toFixed(1);
+    const barW = (count / maxCount * 100).toFixed(0);
+    const aa = CODON_TABLE[codon] || '?';
+    return `<tr><td><code>${codon}</code></td><td>${aa === '*' ? 'Stop' : aa}</td><td>${count}</td><td>${pct}%</td><td><div class="mini-bar"><div class="mini-bar-fill" style="width:${barW}%"></div></div></td></tr>`;
+  }).join('');
+}
+
+function buildAARows(data) {
+  const allAA = Object.keys(data.aaCounts).sort();
+  const total = allAA.reduce((s, aa) => s + data.aaCounts[aa], 0);
+  return allAA.map(aa => {
+    const count = data.aaCounts[aa];
+    const pct = total > 0 ? (count / total * 100).toFixed(1) : '0.0';
+    return `<tr><td><strong>${aa}</strong></td><td>${AA_NAMES[aa]}</td><td>${count}</td><td>${pct}%</td></tr>`;
+  }).join('');
+}
+
+function formatSeq(seq) {
+  let out = '';
+  for (let i = 0; i < seq.length; i += 60) out += seq.slice(i, i + 60) + '\n';
+  return out.trimEnd();
+}
+
+function createGCChart(canvasId, data) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Guanine (G)', 'Cytosine (C)', 'Adenine (A)', 'Thymine (T)'],
+      datasets: [{ data: [data.G, data.C, data.A, data.T], backgroundColor: ['#6c5ce7', '#00cec9', '#fd79a8', '#fdcb6e'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text').trim(), font: { family: 'Inter' } } } }
+    }
+  });
+  chartInstances.push(chart);
+}
+
+function createAAChart(canvasId, data) {
+  const labels = Object.keys(data.aaCounts).filter(aa => data.aaCounts[aa] > 0).sort();
+  const values = labels.map(aa => data.aaCounts[aa]);
+  const colors = ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#0984e3','#e17055','#00b894','#e84393','#74b9ff','#55efc4','#fab1a0','#81ecec','#a29bfe','#ffeaa7','#ff7675','#636e72','#e056fd','#f9ca24','#eb4d4b','#22a6b3'];
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Count', data: values, backgroundColor: labels.map((_, i) => colors[i % colors.length]), borderRadius: 4, borderSkipped: false }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(), font: { family: 'Inter', weight: 'bold' } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+  chartInstances.push(chart);
+}
+
+// ===== Main Analyze =====
+analyzeBtn.addEventListener('click', () => {
+  hideError();
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+
+  const raw = seqInput.value.trim();
+  if (!raw) { showError('Please paste a sequence or upload a FASTA file.'); return; }
+
+  const entries = parseMultiFasta(raw);
+  if (entries.length === 0 || entries.every(e => e.seq.length === 0)) {
+    showError('No valid sequence characters found.'); return;
+  }
+
+  // Validate all entries
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (e.seq.length === 0) continue;
+    const type = detectType(e.seq);
+    const invalid = validateSequence(e.seq, type);
+    if (invalid.length > 0) {
+      const chars = invalid.slice(0, 5).map(x => `'${x.char}' at pos ${x.pos}`).join(', ');
+      showError(`Sequence "${e.header}": Invalid characters for ${type}: ${chars}${invalid.length > 5 ? '…' : ''}`);
+      return;
+    }
+  }
+
+  // Filter out empty entries
+  const validEntries = entries.filter(e => e.seq.length > 0);
+  const isMulti = validEntries.length > 1;
+
+  let html = '';
+
+  if (isMulti) {
+    html += `<div class="multi-badge">📁 Multi-FASTA: ${validEntries.length} sequences detected</div>`;
+    html += '<div class="seq-tabs" id="seqTabs">';
+    validEntries.forEach((e, i) => {
+      const shortHeader = e.header.length > 30 ? e.header.slice(0, 30) + '…' : e.header;
+      html += `<button class="seq-tab ${i === 0 ? 'active' : ''}" data-panel="panel_${i}" title="${e.header}">${i + 1}. ${shortHeader}</button>`;
+    });
+    html += '</div>';
+  }
+
+  validEntries.forEach((entry, i) => {
+    const type = detectType(entry.seq);
+    const panelClass = isMulti ? `seq-panel ${i === 0 ? 'active' : ''}` : '';
+    const panelId = `panel_${i}`;
+
+    html += `<div class="${panelClass}" id="${panelId}">`;
+    if (isMulti) {
+      html += `<section class="card"><h2>🏷️ ${entry.header}</h2><p class="controls-hint" style="margin-bottom:0;">${type === 'nucleotide' ? 'DNA' : 'Protein'} · ${entry.seq.length.toLocaleString()} ${type === 'nucleotide' ? 'bp' : 'aa'}</p></section>`;
+    }
+
+    if (type === 'nucleotide') {
+      const data = analyzeNucleotide(entry.seq);
+      html += buildNucleotidePanel(data, i);
+    } else {
+      const data = analyzeProtein(entry.seq);
+      html += buildProteinPanel(data, i);
+    }
+    html += '</div>';
+  });
+
+  resultsContainer.innerHTML = html;
+  resultsContainer.style.display = 'block';
+
+  // Create charts (must be after DOM is populated)
+  validEntries.forEach((entry, i) => {
+    const type = detectType(entry.seq);
+    if (type === 'nucleotide') {
+      const data = analyzeNucleotide(entry.seq);
+      // Only create chart if panel is visible or it's single sequence
+      if (i === 0 || !isMulti) createGCChart(`gcChart_${i}`, data);
+    } else {
+      const data = analyzeProtein(entry.seq);
+      if (i === 0 || !isMulti) createAAChart(`aaChart_${i}`, data);
+    }
+  });
+
+  // Tab switching
+  if (isMulti) {
+    document.querySelectorAll('.seq-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.seq-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.seq-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panelId = tab.dataset.panel;
+        document.getElementById(panelId).classList.add('active');
+
+        // Lazy-create chart if not yet rendered
+        const idx = parseInt(panelId.split('_')[1]);
+        const entry = validEntries[idx];
+        const type = detectType(entry.seq);
+        if (type === 'nucleotide') {
+          const canvas = document.getElementById(`gcChart_${idx}`);
+          if (canvas && !canvas.dataset.rendered) {
+            createGCChart(`gcChart_${idx}`, analyzeNucleotide(entry.seq));
+            canvas.dataset.rendered = 'true';
+          }
+        } else {
+          const canvas = document.getElementById(`aaChart_${idx}`);
+          if (canvas && !canvas.dataset.rendered) {
+            createAAChart(`aaChart_${idx}`, analyzeProtein(entry.seq));
+            canvas.dataset.rendered = 'true';
+          }
+        }
+      });
+    });
+
+    // Mark first chart as rendered
+    const firstType = detectType(validEntries[0].seq);
+    const firstCanvas = document.getElementById(firstType === 'nucleotide' ? 'gcChart_0' : 'aaChart_0');
+    if (firstCanvas) firstCanvas.dataset.rendered = 'true';
+  }
+
+  // Copy buttons
+  document.querySelectorAll('.copy-rc-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = btn.dataset.idx;
+      const text = document.getElementById(`revCompBox_${idx}`).textContent;
+      navigator.clipboard.writeText(text).then(showToast);
+    });
+  });
+
+  resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ===== Clear =====
+clearBtn.addEventListener('click', () => {
+  seqInput.value = '';
+  hideError();
+  resultsContainer.style.display = 'none';
+  resultsContainer.innerHTML = '';
+  chartInstances.forEach(c => c.destroy());
+  chartInstances = [];
+});
+</script>
+</body>
+</html>
